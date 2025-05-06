@@ -68,7 +68,6 @@ def mostrar_ventana_usuario_normal(usuario):
     # --- Función para cerrar sesión
     def cerrar_sesion():
         ventana.destroy()
-        from mainSF import login
         login()
 
     # --- Botones

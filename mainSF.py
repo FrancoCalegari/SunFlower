@@ -20,6 +20,9 @@ ctk.set_default_color_theme("blue")
 init_db()
 
 
+
+
+
 # Ventana de Login
 def login():
     def verificar_login():

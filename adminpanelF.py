@@ -123,7 +123,6 @@ def mostrar_ventana_Admin():
     # Botón para cerrar sesión
     def cerrar_sesion():
         ventana.destroy()
-        from mainSF import login
         login()
 
     btn_cerrar_sesion = ctk.CTkButton(marco_derecho, text="Cerrar sesión", command=cerrar_sesion, width=300)
