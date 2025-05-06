@@ -3,7 +3,7 @@ import sqlite3
 import os
 from tkinter import messagebox
 
-
+import mainSF
 
 # Obtener conexión y trabajar con la base de datos
 from dbController import get_connection, init_db
@@ -68,7 +68,7 @@ def mostrar_ventana_usuario_normal(usuario):
     # --- Función para cerrar sesión
     def cerrar_sesion():
         ventana.destroy()
-        login()
+        mainSF.login()
 
     # --- Botones
     btn_ver_eventos = ctk.CTkButton(ventana, text="📂 Ver eventos con mi pareja", command=ver_eventos)

@@ -127,8 +127,7 @@ def ventana_registro():
 
     registro_window.mainloop()
 
-# Iniciar app
-login()
-
-# Cierre de la conexión al salir
-conn.close()
+# Iniciar app solo si se ejecuta directamente, no cuando se importa
+if __name__ == "__main__":
+    login()
+    conn.close()
