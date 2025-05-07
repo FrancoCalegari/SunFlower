@@ -1,12 +1,10 @@
 import customtkinter as ctk
-import sqlite3
 import os
 from tkinter import messagebox
+from PIL import ImageTk
 
-import mainSF
-
-# Obtener conexión y trabajar con la base de datos
-from dbController import get_connection, init_db
+import profilephotoSF
+from dbController import get_connection
 conn = get_connection()
 cursor = conn.cursor()
 
@@ -17,6 +15,15 @@ def mostrar_ventana_usuario_normal(usuario):
     ventana.title(f"SUNFLOWER - {usuario[1]} 🌻")
 
     pareja = usuario[5]  # RelacionCon
+
+    # --- Mostrar foto de perfil
+    ruta_foto = os.path.join('users', usuario[1], 'profile.png')
+    foto = profilephotoSF.obtener_foto_redonda(ruta_foto)
+
+    if foto:
+        label_foto = ctk.CTkLabel(ventana, image=foto, text="") 
+        label_foto.image = foto  # Evitar el recolector de basura
+        label_foto.pack(pady=10)
 
     # --- Estado de relación
     estado_relacion = f"""
@@ -68,6 +75,7 @@ def mostrar_ventana_usuario_normal(usuario):
     # --- Función para cerrar sesión
     def cerrar_sesion():
         ventana.destroy()
+        import mainSF
         mainSF.login()
 
     # --- Botones
@@ -77,7 +85,37 @@ def mostrar_ventana_usuario_normal(usuario):
     btn_agregar_evento = ctk.CTkButton(ventana, text="➕ Agregar evento", command=agregar_evento)
     btn_agregar_evento.pack(pady=10)
 
+    btn_gestionar_foto = ctk.CTkButton(ventana, text="📸 Cambiar foto de perfil", command=lambda: gestionar_foto_perfil(usuario[1]))
+    btn_gestionar_foto.pack(pady=10)
+
     btn_cerrar_sesion = ctk.CTkButton(ventana, text="🔒 Cerrar sesión", command=cerrar_sesion)
     btn_cerrar_sesion.pack(pady=10)
 
     ventana.mainloop()
+
+
+# --- NUEVA FUNCIÓN: Mostrar y cambiar foto de perfil
+def gestionar_foto_perfil(usuario):
+    ventana_foto = ctk.CTkToplevel()
+    ventana_foto.geometry("400x300")
+    ventana_foto.title("Gestionar Foto de Perfil")
+
+    ruta_foto = os.path.join('users', usuario, 'profile.png')
+    foto = profilephotoSF.obtener_foto_redonda(ruta_foto)
+
+    if foto:
+        label_foto = ctk.CTkLabel(ventana_foto, image=foto, text="")
+        label_foto.image = foto
+        label_foto.pack(pady=10)
+
+    def cambiar_foto():
+        nueva_foto = profilephotoSF.cambiar_foto_perfil(usuario)
+        if nueva_foto:
+            nueva_img = profilephotoSF.obtener_foto_redonda(nueva_foto)
+            label_foto.configure(image=nueva_img)
+            label_foto.image = nueva_img
+
+    btn_cambiar_foto = ctk.CTkButton(ventana_foto, text="Cambiar Foto de Perfil", command=cambiar_foto)
+    btn_cambiar_foto.pack(pady=10)
+
+    ventana_foto.mainloop()

@@ -3,27 +3,23 @@ import sqlite3
 import os
 from tkinter import messagebox
 
-#modulo personalizado panel administrador
+# Modulo personalizado para manejo de fotos de perfil
+import profilephotoSF
+
+# Modulo personalizado panel administrador
 import adminpanelF
 import userspanelSF
-# Obtener conexión y trabajar con la base de datos
 from dbController import get_connection, init_db
+
 conn = get_connection()
 cursor = conn.cursor()
 
-
-# Configuración de la app
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
-# Inicializar la base de datos (crear tablas si no existen)
 init_db()
 
 
-
-
-
-# Ventana de Login
 def login():
     def verificar_login():
         usuario = entry_user.get()
@@ -65,7 +61,7 @@ def login():
 
     login_window.mainloop()
 
-# Ventana de Registro
+
 def ventana_registro():
     def registrar_usuario():
         usuario = entry_user.get()
@@ -77,6 +73,11 @@ def ventana_registro():
 
         if not (usuario and contraseña and correo and telefono and relacion and cumpleaños):
             messagebox.showerror("Error", "Todos los campos son obligatorios.")
+            return
+
+        ruta_foto = profilephotoSF.subir_foto_perfil(usuario)
+        if not ruta_foto:
+            messagebox.showerror("Error", "Debe seleccionar una foto de perfil.")
             return
 
         cursor.execute("SELECT * FROM usuarios WHERE usuario = ? OR Correo = ?", (usuario, correo))
@@ -127,7 +128,7 @@ def ventana_registro():
 
     registro_window.mainloop()
 
-# Iniciar app solo si se ejecuta directamente, no cuando se importa
+
 if __name__ == "__main__":
     login()
     conn.close()
