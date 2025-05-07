@@ -3,6 +3,7 @@ import sqlite3
 import os
 from tkinter import messagebox
 
+import mainSF
 
 
 # Obtener conexión y trabajar con la base de datos
@@ -123,8 +124,7 @@ def mostrar_ventana_Admin():
     # Botón para cerrar sesión
     def cerrar_sesion():
         ventana.destroy()
-        from mainSF import login
-        login()
+        mainSF.login()
 
     btn_cerrar_sesion = ctk.CTkButton(marco_derecho, text="Cerrar sesión", command=cerrar_sesion, width=300)
     btn_cerrar_sesion.pack(pady=10)
