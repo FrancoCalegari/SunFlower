@@ -32,13 +32,12 @@ def crear_usuario():
         mostrar_mensaje("✅ Tu usuario fue creado con éxito.")
 
 def leer_usuarios():
-    
-    cursor.execute("SELECT id, usuario, Correo, telefono, RelacionCon, cumpleaños FROM usuarios")
+    cursor.execute("SELECT id, usuario, contraseña, Correo, telefono, RelacionCon, cumpleaños FROM usuarios")
     usuarios = cursor.fetchall()
     if usuarios:
         mensaje = "📋 Lista de usuarios:\n\n"
         for user in usuarios:
-            mensaje += f"ID: {user[0]} | Usuario: {user[1]} | Correo: {user[2]} | Tel: {user[3]} | Relación: {user[4]} | Cumpleaños: {user[5]}\n"
+            mensaje += f"ID: {user[0]} | Usuario: {user[1]} | Contraseña: {user[2]} | Correo: {user[3]} | Tel: {user[4]} | Relación: {user[5]} | Cumpleaños: {user[6]}\n"
     else:
         mensaje = "⚠️ No hay usuarios registrados."
     mostrar_mensaje(mensaje)
