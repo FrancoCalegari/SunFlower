@@ -70,21 +70,69 @@ def mostrar_ventana_usuario_normal(usuario):
 
     # --- Función para agregar un evento
     def agregar_evento():
-        titulo = ctk.CTkInputDialog(text="Título del evento:", title="Agregar Evento").get_input()
-        descripcion = ctk.CTkInputDialog(text="Descripción (incluye nombre de tu pareja para vincularlo):", title="Agregar Evento").get_input()
-        duracion = ctk.CTkInputDialog(text="Duración (horas):", title="Agregar Evento").get_input()
-        estimado = ctk.CTkInputDialog(text="Tiempo estimado (minutos):", title="Agregar Evento").get_input()
-        genero = ctk.CTkInputDialog(text="Género del evento (comedia, romántico, etc.):", title="Agregar Evento").get_input()
-        clasificacion = ctk.CTkInputDialog(text="Clasificación (A, B, C):", title="Agregar Evento").get_input()
-        lugar = ctk.CTkInputDialog(text="¿Es dentro o fuera?", title="Agregar Evento").get_input()
+        def ventana_agregar_evento():
+            titulo = entry_titulo.get()
+            descripcion = entry_descripcion.get()
+            duracion = entry_duracion.get()
+            estimado = entry_estimado.get()
+            genero = entry_genero.get()
+            clasificacion = entry_clasificacion.get()
+            lugar = entry_lugar.get()
 
-        if titulo and descripcion and duracion and estimado and genero and clasificacion and lugar:
-            cursor.execute("""
-            INSERT INTO eventos (titulo, descripción, duracionEvento, TiempoEstimado, genero, clasificacion, FueraDentro)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (titulo, descripcion, duracion, estimado, genero, clasificacion, lugar))
-            conn.commit()
-            messagebox.showinfo("Éxito", "🎉 Evento agregado correctamente.")
+            if not (titulo and descripcion and duracion and estimado and lugar):
+                messagebox.showerror("Error", "Todos los campos son obligatorios.")
+                return
+            else:
+                cursor.execute("""
+                INSERT INTO eventos (titulo, descripción, duracionEvento, TiempoEstimado, genero, clasificacion, FueraDentro)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (titulo, descripcion, duracion, estimado, genero, clasificacion, lugar))
+                conn.commit()
+                messagebox.showinfo("Éxito", "🎉 Evento agregado correctamente.")
+        
+        evento_window = ctk.CTk()
+        evento_window.geometry("1280x720")
+        evento_window.title("SUNFLOWER - Agregar evento")
+        
+        ctk.CTkLabel(evento_window, text="Titulo").pack(pady=10)
+        entry_titulo = ctk.CTkEntry(evento_window)
+        entry_titulo.pack()
+
+        ctk.CTkLabel(evento_window, text="Descripción del evento").pack(pady=10)
+        entry_descripcion = ctk.CTkEntry(evento_window)
+        entry_descripcion.pack()
+
+        ctk.CTkLabel(evento_window, text="Duración del evento").pack(pady=10)
+        entry_duracion = ctk.CTkEntry(evento_window)
+        entry_duracion.pack()
+
+        ctk.CTkLabel(evento_window, text="Tiempo estimado").pack(pady=10)
+        entry_estimado = ctk.CTkEntry(evento_window)
+        entry_estimado.pack()
+
+        ctk.CTkLabel(evento_window, text="Etiqueta (Aire libre, Gamer, etc.)").pack(pady=10)
+        entry_genero = ctk.CTkEntry(evento_window)
+        entry_genero.pack()
+
+        ctk.CTkLabel(evento_window, text="Clasificación (A, B, C...)").pack(pady=10)
+        entry_clasificacion = ctk.CTkEntry(evento_window)
+        entry_clasificacion.pack()
+
+        ctk.CTkLabel(evento_window, text="Lugar").pack(pady=10)
+        entry_lugar = ctk.CTkEntry(evento_window)
+        entry_lugar.pack()
+
+        btn_guardar_cambios = ctk.CTkButton(
+            evento_window, 
+            text="Guardar Evento", 
+            command=lambda: [ventana_agregar_evento(), evento_window.destroy()]
+        )
+        btn_guardar_cambios.pack(pady=20)
+
+        btn_volver = ctk.CTkButton(evento_window, text="Cancelar", command=lambda: [evento_window.destroy()])
+        btn_volver.pack(pady=10)
+        evento_window.mainloop()
+
 
     # --- Función para cerrar sesión
     def cerrar_sesion():
