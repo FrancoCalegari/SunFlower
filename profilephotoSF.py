@@ -9,7 +9,7 @@ def subir_foto_perfil(usuario):
     ruta_carpeta = os.path.join('users', usuario)
     os.makedirs(ruta_carpeta, exist_ok=True)
 
-    ruta_foto = filedialog.askopenfilename(title='Seleccionar foto de perfil', filetypes=[('Imágenes', '*.png;*.jpg;*.jpeg; *.webp')])
+    ruta_foto = filedialog.askopenfilename(title='Seleccionar foto de perfil', filetypes=[('Imágenes', '*.png *.jpg *.jpeg *.webp')])
 
     if ruta_foto:
         ruta_destino = os.path.join(ruta_carpeta, 'profile.png')
@@ -28,7 +28,7 @@ def cambiar_foto_perfil(usuario):
     if not os.path.exists(ruta_foto_actual):
         messagebox.showwarning('Advertencia', 'No se ha encontrado una foto de perfil para este usuario.')
 
-    ruta_foto_nueva = filedialog.askopenfilename(title='Seleccionar nueva foto de perfil', filetypes=[('Imágenes', '*.png;*.jpg;*.jpeg; *.webp')])
+    ruta_foto_nueva = filedialog.askopenfilename(title='Seleccionar nueva foto de perfil', filetypes=[('Imágenes', '*.png *.jpg *.jpeg *.webp')])
 
     if ruta_foto_nueva:
         shutil.copy(ruta_foto_nueva, ruta_foto_actual)
