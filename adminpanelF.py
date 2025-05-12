@@ -2,8 +2,15 @@ import customtkinter as ctk
 import sqlite3
 import os
 from tkinter import messagebox
+from tkinter import *
+from tkinter import filedialog
+from PIL import Image, ImageDraw, ImageOps
 
 import mainSF
+
+# Almacena el frame del panel derecho para reemplazar contenido dinámicamente
+panel_derecho_contenedor = None
+
 
 
 # Obtener conexión y trabajar con la base de datos
@@ -12,59 +19,182 @@ conn = get_connection()
 cursor = conn.cursor()
 
 # Funciones
+def imagen_con_bordes_redondeados(imagen, radio=3):
+    # Asegurar modo RGBA
+    imagen = imagen.convert("RGBA")
+    
+    # Crear máscara redondeada
+    mascara = Image.new("L", imagen.size, 0)
+    draw = ImageDraw.Draw(mascara)
+    draw.rounded_rectangle([(0, 0), imagen.size], radius=radio, fill=255)
+    
+    # Aplicar máscara
+    imagen_redondeada = ImageOps.fit(imagen, imagen.size)
+    imagen_redondeada.putalpha(mascara)
+    return imagen_redondeada
+
+
+
+
+
 def mostrar_mensaje(mensaje):
-    textbox.delete("0.0", "end")
-    textbox.insert("0.0", mensaje)
+    global textbox
+    if textbox:
+        textbox.delete("0.0", "end")
+        textbox.insert("0.0", mensaje)
 
 def crear_usuario():
-    
-    usuario = ctk.CTkInputDialog(text="Nombre de usuario:", title="Crear usuario").get_input()
-    contraseña = ctk.CTkInputDialog(text="Ingrese la contraseña:", title="Ingresar contraseña").get_input()
-    correo = ctk.CTkInputDialog(text="Ingrese su correo:", title="Correo").get_input()
-    telefono = ctk.CTkInputDialog(text="Ingrese su teléfono:", title="Teléfono").get_input()
-    relacion = ctk.CTkInputDialog(text="¿Con quién tiene una relación?", title="Relación").get_input()
-    cumpleaños = ctk.CTkInputDialog(text="Ingresa tu cumpleaños:", title="Cumpleaños").get_input()
+    global panel_derecho_contenedor
+    for widget in panel_derecho_contenedor.winfo_children():
+        widget.destroy()
 
-    if usuario and contraseña and correo and telefono and relacion and cumpleaños:
-        cursor.execute("INSERT INTO usuarios (usuario, contraseña, Correo, telefono, RelacionCon, cumpleaños) VALUES (?, ?, ?, ?, ?, ?)",
-                       (usuario, contraseña, correo, telefono, relacion, cumpleaños))
+    ctk.CTkLabel(panel_derecho_contenedor, text="Crear nuevo usuario", font=("Arial", 18)).pack(pady=10)
+
+    campos = ["usuario", "contraseña", "correo", "telefono", "relacion", "cumpleaños"]
+    entradas = {}
+
+    for campo in campos:
+        lbl = ctk.CTkLabel(panel_derecho_contenedor, text=campo.capitalize())
+        lbl.pack()
+        entry = ctk.CTkEntry(panel_derecho_contenedor)
+        entry.pack(pady=5)
+        entradas[campo] = entry
+
+    # Sección para imagen de perfil
+    imagen_seleccionada = {"ruta": None}
+    
+    def seleccionar_imagen():
+        archivo = filedialog.askopenfilename(filetypes=[("Imágenes", "*.png *.jpg *.jpeg")])
+        if archivo:
+            imagen_seleccionada["ruta"] = archivo
+            mostrar_mensaje("📷 Imagen seleccionada correctamente.")
+
+    btn_imagen = ctk.CTkButton(panel_derecho_contenedor, text="Seleccionar imagen de perfil (opcional)", command=seleccionar_imagen)
+    btn_imagen.pack(pady=10)
+
+    def guardar_usuario():
+        datos = [entradas[c].get().strip() for c in campos]
+
+        if not all(datos[:4]):  # Solo validar usuario, contraseña, correo, teléfono
+            mostrar_mensaje("⚠️ Por favor, completa todos los campos obligatorios (usuario, contraseña, correo, teléfono).")
+            return
+        
+        # Y después asegúrate de poner una relación por defecto si está vacía:
+        if not datos[4]:  # Si RelacionCon está vacío
+            datos[4] = "sinrelacion"
+
+        nombre_usuario = datos[0]
+
+        # Insertar en base de datos
+        cursor.execute("""
+            INSERT INTO usuarios (usuario, contraseña, Correo, telefono, RelacionCon, cumpleaños)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, datos)
         conn.commit()
-        mostrar_mensaje("✅ Tu usuario fue creado con éxito.")
+
+        # Crear carpeta del usuario
+        carpeta_usuario = os.path.join("users", nombre_usuario)
+        os.makedirs(carpeta_usuario, exist_ok=True)
+
+        ruta_destino = os.path.join(carpeta_usuario, "profile.png")
+
+        # Guardar imagen o imagen por defecto
+        if imagen_seleccionada["ruta"]:
+            try:
+                imagen = Image.open(imagen_seleccionada["ruta"])
+                imagen.save(ruta_destino)
+            except Exception as e:
+                mostrar_mensaje(f"⚠️ No se pudo guardar la imagen: {e}")
+                return
+        else:
+            imagen_default = Image.open("defaultuser.png")
+            imagen_default.save(ruta_destino)
+
+        mostrar_mensaje("✅ Usuario creado correctamente.")
+        editar_usuario(cursor.lastrowid)  # Ir a la vista de edición del nuevo usuario
+
+    btn_guardar = ctk.CTkButton(panel_derecho_contenedor, text="💾 Guardar usuario", command=guardar_usuario)
+    btn_guardar.pack(pady=20)
+
+
+def eliminar_usuario_por_id(id_usuario):
+    confirmar = messagebox.askyesno("Confirmar eliminación", "¿Estás seguro de que deseas eliminar este usuario?")
+    if confirmar:
+        cursor.execute("SELECT usuario FROM usuarios WHERE id = ?", (id_usuario,))
+        resultado = cursor.fetchone()
+        if resultado:
+            nombre_usuario = resultado[0]
+            carpeta_usuario = os.path.join("users", nombre_usuario)
+            if os.path.exists(carpeta_usuario):
+                try:
+                    import shutil
+                    shutil.rmtree(carpeta_usuario)  # Eliminar carpeta del usuario si existe
+                except Exception as e:
+                    print(f"Error eliminando carpeta: {e}")
+
+        cursor.execute("DELETE FROM usuarios WHERE id = ?", (id_usuario,))
+        conn.commit()
+        mostrar_mensaje("🗑️ Usuario eliminado correctamente.")
+        leer_usuarios()  # Refrescar la lista
 
 def leer_usuarios():
-    cursor.execute("SELECT id, usuario, contraseña, Correo, telefono, RelacionCon, cumpleaños FROM usuarios")
+    global panel_derecho_contenedor
+
+    for widget in panel_derecho_contenedor.winfo_children():
+        widget.destroy()
+
+    cursor.execute("SELECT id, usuario, correo, telefono, RelacionCon FROM usuarios")
+
     usuarios = cursor.fetchall()
-    if usuarios:
-        mensaje = "📋 Lista de usuarios:\n\n"
-        for user in usuarios:
-            mensaje += f"ID: {user[0]} | Usuario: {user[1]} | Contraseña: {user[2]} | Correo: {user[3]} | Tel: {user[4]} | Relación: {user[5]} | Cumpleaños: {user[6]}\n"
-    else:
-        mensaje = "⚠️ No hay usuarios registrados."
-    mostrar_mensaje(mensaje)
 
-def actualizar_usuario():
-    id_usuario = ctk.CTkInputDialog(text="ID del usuario a actualizar:", title="Actualizar Usuario").get_input()
-    if not id_usuario:
+    if not usuarios:
+        label_vacio = ctk.CTkLabel(panel_derecho_contenedor, text="⚠️ No hay usuarios registrados.", font=("Arial", 16))
+        label_vacio.pack(pady=10)
         return
-    cursor.execute("SELECT * FROM usuarios WHERE id = ?", (id_usuario,))
-    resultado = cursor.fetchone()
-    if resultado:
-        nuevo_usuario = ctk.CTkInputDialog(text="Nuevo nombre de usuario:", title="Actualizar").get_input()
-        nueva_contraseña = ctk.CTkInputDialog(text="Nueva contraseña:", title="Actualizar").get_input()
-        nuevo_correo = ctk.CTkInputDialog(text="Nuevo correo:", title="Actualizar").get_input()
-        nuevo_telefono = ctk.CTkInputDialog(text="Nuevo teléfono:", title="Actualizar").get_input()
-        nueva_relacion = ctk.CTkInputDialog(text="Nueva relación:", title="Actualizar").get_input()
-        nuevo_cumpleaños = ctk.CTkInputDialog(text="Nuevo cumpleaños:", title="Actualizar").get_input()
 
-        cursor.execute("""
-        UPDATE usuarios
-        SET usuario=?, contraseña=?, Correo=?, telefono=?, RelacionCon=?, cumpleaños=?
-        WHERE id=?
-        """, (nuevo_usuario, nueva_contraseña, nuevo_correo, nuevo_telefono, nueva_relacion, nuevo_cumpleaños, id_usuario))
-        conn.commit()
-        mostrar_mensaje("✅ Usuario actualizado correctamente.")
-    else:
-        mostrar_mensaje("❌ No se encontró un usuario con ese ID.")
+    scroll_frame = ctk.CTkScrollableFrame(panel_derecho_contenedor, width=400, height=600)
+    scroll_frame.pack(expand=True, fill="both", padx=10, pady=10)
+
+    for user in usuarios:
+        id_usuario, nombre_usuario, correo, telefono, relacion = user
+        ruta_imagen = os.path.join("users", nombre_usuario, "profile.png")
+        
+        if not relacion:
+            relacion = "sinrelacion"
+
+        if os.path.exists(ruta_imagen):
+            original = Image.open(ruta_imagen).resize((80, 80))
+        else:
+            original = Image.new("RGB", (80, 80), color="gray")
+
+        
+
+        
+        imagen_redondeada = imagen_con_bordes_redondeados(original, radio=9)
+        img = ctk.CTkImage(imagen_redondeada, size=(80, 80))
+
+        user_frame = ctk.CTkFrame(scroll_frame, corner_radius=10)
+        user_frame.pack(fill="x", pady=5, padx=5)
+
+        img_label = ctk.CTkLabel(user_frame, image=img, text="")
+        img_label.image = img
+        img_label.pack(side="left", padx=20)
+
+        text_label = ctk.CTkLabel(user_frame, text=f"ID: {id_usuario}\n{nombre_usuario}\n{correo} | {telefono}\nRelación: {relacion}", anchor="center", justify="center")
+
+        text_label.pack(side="left", padx=20)
+
+        btn_frame = ctk.CTkFrame(user_frame)
+        btn_frame.pack(side="right", padx=20)
+
+        editar_btn = ctk.CTkButton(btn_frame, text="Editar", width=40, command=lambda uid=id_usuario: editar_usuario(uid))
+        editar_btn.pack(pady=2)
+
+        eliminar_btn = ctk.CTkButton(btn_frame, text="Eliminar", width=40, fg_color="red", hover_color="#b30000",
+                                    command=lambda uid=id_usuario: eliminar_usuario_por_id(uid))
+        eliminar_btn.pack(pady=2)
+
+
 
 def eliminar_usuario():
     id_usuario = ctk.CTkInputDialog(text="ID del usuario a eliminar:", title="Eliminar Usuario").get_input()
@@ -80,52 +210,116 @@ def eliminar_usuario():
         mostrar_mensaje("❌ No se encontró un usuario con ese ID.")
 
 
-# Ventana principal (solo accesible tras login)
+def editar_usuario(id_usuario):
+    global panel_derecho_contenedor
+    for widget in panel_derecho_contenedor.winfo_children():
+        widget.destroy()
+
+    cursor.execute("SELECT * FROM usuarios WHERE id = ?", (id_usuario,))
+    usuario = cursor.fetchone()
+    if not usuario:
+        return
+
+    campos = ["usuario", "contraseña", "Correo", "telefono", "RelacionCon", "cumpleaños"]
+    valores = dict(zip(campos, usuario[1:]))
+
+    # Imagen
+    ruta_imagen = os.path.join("users", valores['usuario'], "profile.png")
+    if os.path.exists(ruta_imagen):
+        img = ctk.CTkImage(Image.open(ruta_imagen), size=(100, 100))
+    else:
+        img = ctk.CTkImage(Image.new("RGB", (100, 100), color="gray"), size=(100, 100))
+
+    label_img = ctk.CTkLabel(panel_derecho_contenedor, image=img, text="")
+    label_img.image = img
+    label_img.pack(pady=10)
+
+    entradas = {}
+    for campo, valor in valores.items():
+        lbl = ctk.CTkLabel(panel_derecho_contenedor, text=campo.capitalize())
+        lbl.pack()
+        entry = ctk.CTkEntry(panel_derecho_contenedor)
+        entry.insert(0, valor)
+        entry.pack(pady=5)
+        entradas[campo] = entry
+
+    def guardar_cambios():
+        nuevo_usuario = entradas["usuario"].get()
+        datos = [entradas[c].get() for c in campos]
+
+        # Obtener nombre de usuario anterior
+        nombre_anterior = valores["usuario"]
+
+        if not entradas["RelacionCon"].get():
+            entradas["RelacionCon"].delete(0, "end")
+            entradas["RelacionCon"].insert(0, "sinrelacion")
+
+
+        # Renombrar carpeta si el nombre ha cambiado
+        if nuevo_usuario != nombre_anterior:
+            carpeta_anterior = os.path.join("users", nombre_anterior)
+            carpeta_nueva = os.path.join("users", nuevo_usuario)
+
+            if os.path.exists(carpeta_anterior):
+                try:
+                    os.rename(carpeta_anterior, carpeta_nueva)
+                except Exception as e:
+                    mostrar_mensaje(f"⚠️ Error al renombrar la carpeta: {e}")
+                    return
+
+        # Actualizar en la base de datos
+        cursor.execute("""
+            UPDATE usuarios
+            SET usuario=?, contraseña=?, Correo=?, telefono=?, RelacionCon=?, cumpleaños=?
+            WHERE id=?
+        """, (*datos, id_usuario))
+        conn.commit()
+        mostrar_mensaje("✅ Usuario actualizado.")
+
+        # 🔄 Refrescar la vista del mismo usuario con nuevos datos
+        editar_usuario(id_usuario)
+
+
+
+    btn_guardar = ctk.CTkButton(panel_derecho_contenedor, text="💾 Guardar cambios", command=guardar_cambios)
+    btn_guardar.pack(pady=10)
+
+
 def mostrar_ventana_Admin():
-    cursor.connection
-    global textbox  # Para que mostrar_mensaje funcione
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("blue")
+
+    global textbox, panel_derecho_contenedor
+
     ventana = ctk.CTk()
     ventana.geometry("1280x720")
     ventana.title("SUNFLOWER - Admin Panel")
+    ventana.grid_columnconfigure(0, weight=1)
+    ventana.grid_columnconfigure(1, weight=3)
+    ventana.grid_rowconfigure(0, weight=1)
 
-    # Crear un marco principal para dividir la ventana en dos secciones
-    marco_principal = ctk.CTkFrame(ventana)
-    marco_principal.pack(fill="both", expand=True, padx=10, pady=10)
+    # Panel izquierdo
+    marco_izquierdo = ctk.CTkFrame(ventana, corner_radius=15)
+    marco_izquierdo.grid(row=0, column=0, sticky="nswe", padx=20, pady=20)
 
-    # Sección izquierda: Panel de información
-    marco_izquierdo = ctk.CTkFrame(marco_principal, width=800)
-    marco_izquierdo.pack(side="right", fill="both", expand=True, padx=10, pady=10)
-
-    label_info = ctk.CTkLabel(marco_izquierdo, text="Panel de Información", font=("Arial", 20))
-    label_info.pack(pady=10)
-
-    textbox = ctk.CTkTextbox(marco_izquierdo, width=700, height=600)
-    textbox.pack(pady=10)
-
-    # Sección derecha: Botones de acciones
-    marco_derecho = ctk.CTkFrame(marco_principal, width=400)
-    marco_derecho.pack(side="left", fill="y", padx=10, pady=10)
-
-    label_acciones = ctk.CTkLabel(marco_derecho, text="Acciones", font=("Arial", 20))
-    label_acciones.pack(pady=10)
+    label_acciones = ctk.CTkLabel(marco_izquierdo, text="Acciones", font=ctk.CTkFont(size=20, weight="bold"))
+    label_acciones.pack(pady=(20, 10))
 
     botones = [
-        ("Crear usuario", crear_usuario),
-        ("Leer usuarios", leer_usuarios),
-        ("Actualizar usuario", actualizar_usuario),
-        ("Eliminar usuario", eliminar_usuario),
+        ("➕ Crear usuario", crear_usuario),
+        ("📖 Leer usuarios", leer_usuarios),
+        ("🗑️ Eliminar usuario", eliminar_usuario),
     ]
-
     for texto, comando in botones:
-        btn = ctk.CTkButton(marco_derecho, text=texto, command=comando, width=300)
+        btn = ctk.CTkButton(marco_izquierdo, text=texto, command=comando, width=200)
         btn.pack(pady=10)
 
-    # Botón para cerrar sesión
-    def cerrar_sesion():
-        ventana.destroy()
-        mainSF.login()
+    btn_cerrar_sesion = ctk.CTkButton(marco_izquierdo, text="🔓 Cerrar sesión", command=lambda: [ventana.destroy(), mainSF.login()], fg_color="red", hover_color="#b30000")
+    btn_cerrar_sesion.pack(pady=20)
 
-    btn_cerrar_sesion = ctk.CTkButton(marco_derecho, text="Cerrar sesión", command=cerrar_sesion, width=300)
-    btn_cerrar_sesion.pack(pady=10)
+    # Panel derecho
+    panel_derecho_contenedor = ctk.CTkFrame(ventana, corner_radius=15)
+    panel_derecho_contenedor.grid(row=0, column=1, sticky="nswe", padx=20, pady=20)
 
     ventana.mainloop()
+

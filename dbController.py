@@ -20,7 +20,7 @@ def init_db():
         contraseña TEXT NOT NULL,
         Correo TEXT NOT NULL,
         telefono NUMERIC NOT NULL,
-        RelacionCon TEXT NOT NULL,
+        RelacionCon TEXT,
         cumpleaños NUMERIC NOT NULL
     )
     """)
