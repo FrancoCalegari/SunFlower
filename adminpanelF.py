@@ -12,13 +12,12 @@ import mainSF
 panel_derecho_contenedor = None
 
 
-
 # Obtener conexión y trabajar con la base de datos
 from dbController import get_connection, init_db
 conn = get_connection()
 cursor = conn.cursor()
 
-# Funciones
+# Funciones esteticas
 def imagen_con_bordes_redondeados(imagen, radio=3):
     # Asegurar modo RGBA
     imagen = imagen.convert("RGBA")
@@ -34,17 +33,23 @@ def imagen_con_bordes_redondeados(imagen, radio=3):
     return imagen_redondeada
 
 
+def limpiar_panel_derecho():
+    global panel_derecho_contenedor
+    for widget in panel_derecho_contenedor.winfo_children():
+        widget.destroy()
 
 
 
 def mostrar_mensaje(mensaje):
-    global textbox
-    if textbox:
-        textbox.delete("0.0", "end")
-        textbox.insert("0.0", mensaje)
+    print(mensaje)  # Imprimir en consola
+
+
+
+# Funciónes Principales
 
 def crear_usuario():
     global panel_derecho_contenedor
+    limpiar_panel_derecho()
     for widget in panel_derecho_contenedor.winfo_children():
         widget.destroy()
 
@@ -72,49 +77,64 @@ def crear_usuario():
     btn_imagen = ctk.CTkButton(panel_derecho_contenedor, text="Seleccionar imagen de perfil (opcional)", command=seleccionar_imagen)
     btn_imagen.pack(pady=10)
 
+    # Etiqueta para mensajes de error
+    mensaje_label = ctk.CTkLabel(panel_derecho_contenedor, text="", text_color="red")
+    mensaje_label.pack()
+
     def guardar_usuario():
+        mensaje_label.configure(text="")  # Limpiar mensaje previo
         datos = [entradas[c].get().strip() for c in campos]
 
-        if not all(datos[:4]):  # Solo validar usuario, contraseña, correo, teléfono
-            mostrar_mensaje("⚠️ Por favor, completa todos los campos obligatorios (usuario, contraseña, correo, teléfono).")
+        if not all(datos[:4]):
+            mensaje_label.configure(text="⚠️ Completa todos los campos obligatorios.")
             return
-        
-        # Y después asegúrate de poner una relación por defecto si está vacía:
-        if not datos[4]:  # Si RelacionCon está vacío
+
+        if not datos[4]:
             datos[4] = "sinrelacion"
 
         nombre_usuario = datos[0]
 
-        # Insertar en base de datos
-        cursor.execute("""
-            INSERT INTO usuarios (usuario, contraseña, Correo, telefono, RelacionCon, cumpleaños)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, datos)
-        conn.commit()
+        # Verificar si el usuario ya existe
+        cursor.execute("SELECT id FROM usuarios WHERE usuario = ?", (nombre_usuario,))
+        if cursor.fetchone():
+            mensaje_label.configure(text="❌ El nombre de usuario ya existe. Por favor escoge otro.")
+            return
 
-        # Crear carpeta del usuario
+        try:
+            cursor.execute("""
+                INSERT INTO usuarios (usuario, contraseña, Correo, telefono, RelacionCon, cumpleaños)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, datos)
+            conn.commit()
+        except Exception as e:
+            mensaje_label.configure(text=f"❌ Error en la base de datos: {e}")
+            return
+
+        # Crear carpeta y guardar imagen
         carpeta_usuario = os.path.join("users", nombre_usuario)
         os.makedirs(carpeta_usuario, exist_ok=True)
-
         ruta_destino = os.path.join(carpeta_usuario, "profile.png")
 
-        # Guardar imagen o imagen por defecto
-        if imagen_seleccionada["ruta"]:
-            try:
+        try:
+            if imagen_seleccionada["ruta"]:
                 imagen = Image.open(imagen_seleccionada["ruta"])
-                imagen.save(ruta_destino)
-            except Exception as e:
-                mostrar_mensaje(f"⚠️ No se pudo guardar la imagen: {e}")
-                return
-        else:
-            imagen_default = Image.open("defaultuser.png")
-            imagen_default.save(ruta_destino)
+            else:
+                imagen = Image.open("defaultuser.png")
+            imagen.save(ruta_destino)
+        except Exception as e:
+            mensaje_label.configure(text=f"⚠️ Error al guardar imagen: {e}")
+            return
 
         mostrar_mensaje("✅ Usuario creado correctamente.")
-        editar_usuario(cursor.lastrowid)  # Ir a la vista de edición del nuevo usuario
+        limpiar_panel_derecho()
+        leer_usuarios()  # ✅ Actualizar tabla de usuarios
+        editar_usuario(cursor.lastrowid)
 
     btn_guardar = ctk.CTkButton(panel_derecho_contenedor, text="💾 Guardar usuario", command=guardar_usuario)
     btn_guardar.pack(pady=20)
+
+
+
 
 
 def eliminar_usuario_por_id(id_usuario):
@@ -139,6 +159,7 @@ def eliminar_usuario_por_id(id_usuario):
 
 def leer_usuarios():
     global panel_derecho_contenedor
+    limpiar_panel_derecho()
 
     for widget in panel_derecho_contenedor.winfo_children():
         widget.destroy()
@@ -212,6 +233,7 @@ def eliminar_usuario():
 
 def editar_usuario(id_usuario):
     global panel_derecho_contenedor
+    limpiar_panel_derecho()
     for widget in panel_derecho_contenedor.winfo_children():
         widget.destroy()
 
@@ -285,11 +307,12 @@ def editar_usuario(id_usuario):
     btn_guardar.pack(pady=10)
 
 
+# Estilo de ventana principal de Administracion
 def mostrar_ventana_Admin():
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
 
-    global textbox, panel_derecho_contenedor
+    global panel_derecho_contenedor
 
     ventana = ctk.CTk()
     ventana.geometry("1280x720")
@@ -317,9 +340,15 @@ def mostrar_ventana_Admin():
     btn_cerrar_sesion = ctk.CTkButton(marco_izquierdo, text="🔓 Cerrar sesión", command=lambda: [ventana.destroy(), mainSF.login()], fg_color="red", hover_color="#b30000")
     btn_cerrar_sesion.pack(pady=20)
 
+    #salida del comando label
+
+    salidaComandoAdmin = ctk.CTkLabel(marco_izquierdo, text="Salida del comando", font=ctk.CTkFont(size=20, weight="bold"))
+    salidaComandoAdmin.pack(pady=(20, 10))
+
     # Panel derecho
     panel_derecho_contenedor = ctk.CTkFrame(ventana, corner_radius=15)
     panel_derecho_contenedor.grid(row=0, column=1, sticky="nswe", padx=20, pady=20)
+    leer_usuarios()
 
     ventana.mainloop()
 
